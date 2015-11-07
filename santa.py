@@ -1,6 +1,8 @@
 import argparse
 import csv
 import re   # Regex module
+import smtplib
+import json
 from random import randrange
 
 class CSVError(Exception):
@@ -10,8 +12,13 @@ class CSVError(Exception):
         return repr(self.value)
 
 def main():
+    # First things first, let's read in our config file
+    config = json.loads(open('config.json', 'r').read())
+
     dataLocation = 'data/default.csv'
     dataDestination = 'data/pairs.csv'
+    emailAddr = config['sendAddress']
+    emailPswrd = config['sendAddressPassword']
     sendEmails = False
     verbose = False
 
@@ -32,12 +39,14 @@ def main():
     if args.verbose != None:
         verbose = True
 
-    # Try to read in the initial data file...
     participants = getParticipants(dataLocation)
     pairs = getPairs(participants)
     csvString = stringifyPairs(pairs)
 
-    print csvString
+    writeTextFile(dataDestination, csvString)
+    if sendEmails:
+        sendAllEmails(emailAddr, emailPswrd, pairs)
+
 
 def getParticipants(fileString):
     participantList = []
@@ -64,6 +73,7 @@ def getPairs(participants):
     pairs = []
     index = randrange(0, len(participants))
     firstElement = participants[index]
+    firstElementCopy = firstElement  # We use this at the end
     del participants[index]
 
     while (len(participants) > 0):
@@ -73,6 +83,9 @@ def getPairs(participants):
 
         pairs.append([firstElement, secondElement])
         firstElement = secondElement
+
+    # To complete the loop, pair the resulting secondElement with our copy of the origin firstElement
+    pairs.append([secondElement, firstElementCopy])
 
     return pairs
 
@@ -85,6 +98,34 @@ def stringifyPairs(pairs):
         csvString = csvString + (pair[0]['name'] + ',' + pair[0]['email'] + ',' + pair[1]['name'] + ',' + pair[1]['email'] + '\n')
 
     return csvString
+
+def writeTextFile(location, content):
+    outputFile = open(location, 'w')
+    outputFile.write(content)
+    outputFile.close
+
+def sendAllEmails(address, password, pairs):
+    # Do email setup
+    server = smtplib.SMTP('smtp.gmail.com:587')
+    server.ehlo()
+    server.starttls()
+    server.login(address,password)
+
+    # For each pairing, send an email
+    for pair in pairs:
+        recepientName = pair[0]['name']
+        recepientEmail = pair[0]['email']
+        pairName = pair[1]['name']
+
+        body = ('Hello ' + recepientName + ',\n\n'
+                'This is an automatically generated email to inform you of your Secret Santa match.\n'
+                'Your match is ' + pairName + '.\n\n'
+                'Merry Christmas!\n'
+                'SantaBot')
+
+        server.sendmail(address, recepientEmail, body)
+
+    server.quit()
 
 if __name__ == '__main__':
     main()
