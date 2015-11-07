@@ -1,6 +1,7 @@
 import argparse
 import csv
 import re   # Regex module
+from random import randrange
 
 class CSVError(Exception):
     def __init__(self, value):
@@ -33,9 +34,14 @@ def main():
 
     # Try to read in the initial data file...
     participants = getParticipants(dataLocation)
+    pairs = getPairs(participants)
+    csvString = stringifyPairs(pairs)
+
+    print csvString
 
 def getParticipants(fileString):
     participantList = []
+
     try:
         with open(fileString, 'rb') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -54,8 +60,31 @@ def getParticipants(fileString):
 
     return participantList
 
+def getPairs(participants):
+    pairs = []
+    index = randrange(0, len(participants))
+    firstElement = participants[index]
+    del participants[index]
+
+    while (len(participants) > 0):
+        index = randrange(0, len(participants))
+        secondElement = participants[index]
+        del participants[index]
+
+        pairs.append([firstElement, secondElement])
+        firstElement = secondElement
+
+    return pairs
+
 def isAnEmail(emailString):
     return re.match('^[a-zA-Z0-9._%-+]+@[a-zA-Z0-9._%-]+.[a-zA-Z]{2,6}$', emailString)
+
+def stringifyPairs(pairs):
+    csvString = ''
+    for pair in pairs:
+        csvString = csvString + (pair[0]['name'] + ',' + pair[0]['email'] + ',' + pair[1]['name'] + ',' + pair[1]['email'] + '\n')
+
+    return csvString
 
 if __name__ == '__main__':
     main()
